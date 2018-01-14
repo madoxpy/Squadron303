@@ -22,7 +22,13 @@ Font=font.SysFont("arial",44)
 cloudspic=[image.load("cloud01.png"),image.load("cloud02.png"),image.load("cloud03.png")]
 bullet_pic=image.load("bullet.png")
 rocket_pic=image.load("rocket.png")
-rocket_pic=transform.scale(rocket_pic,(50,100))
+rocket_pic=transform.scale(rocket_pic,(100,100))
+rocket_pic=transform.rotate(rocket_pic,180)
+empty_heart=image.load("heart1.png")
+filled_heart=image.load("heart2.png")
+empty_heart=transform.scale(empty_heart,(80,80))
+filled_heart=transform.scale(filled_heart,(80,80))
+
 
 def rot(pic,ang):
 	orig_rect=pic.get_rect()
@@ -45,6 +51,7 @@ class Rocket(object):
 		self.rect=Rect(self.x-25,self.y-50,50,100)
 		self.act=True
 		self.v=1
+		self.dir=0
 	
 	def go(self,v):
 		x=mouse.get_pos()[0]-res[0]/2
@@ -62,8 +69,19 @@ class Rocket(object):
 		self.rect=Rect(self.x-25,self.y-50,50,100)
 	def draw(self):
 		if self.act:
+			x=self.x-res[0]/2
+			y=self.y-res[1]/2
+			if x>0:
+				self.dir=90+np.arctan(1.0*y/x)/np.pi*180
+			if x<0:
+				self.dir=90+np.arctan(1.0*y/x)/np.pi*180+180
+			if x==0 and y>=0:
+				self.dir=180
+			if x==0 and y<0:
+				self.dir=0
 			#draw.rect(window,white,self.rect,1)
-			window.blit(rocket_pic,(self.x-25,self.y-50))
+			
+			window.blit(rot(rocket_pic,-self.dir),(self.x-25,self.y-50))
 		
 
 class Bullet(object):
@@ -138,7 +156,7 @@ class Plane(object):
 		window.blit(rot(self.pic,-self.dir),(res[0]/2-70,res[1]/2-70))
 
 class Game(object):
-	def __init__(self):
+	def __init__(self,points):
 		self.plane=Plane()
 		self.rockets= []
 		self.clouds=[]
@@ -150,7 +168,7 @@ class Game(object):
 			self.rockets.append(Rocket())		
 		self.v=10
 		self.gameover=False
-		self.points=0.0
+		self.points=points
 	def go(self):
 		if not self.gameover:
 			for bullet in self.bullets:
@@ -179,7 +197,7 @@ class Game(object):
 					rocket.v=rocket.v+1
 
 			
-	def draw(self):
+	def draw(self,lifes,scores):
 		window.fill(bluesky)
 		for cloud in self.clouds:
 			cloud.draw()
@@ -189,10 +207,26 @@ class Game(object):
 		for bullet in self.bullets:
 			bullet.draw()
 		if self.gameover:
-			text = Font.render("Game Over",True,red)
+			text = Font.render("Game Over",True,white)
+			text2 = Font.render("Press space to play again",True,white)
 			window.blit(text,(550,300))
-		text = Font.render(str(self.points),True,red)
+			window.blit(text2,(400,400))
+			text = Font.render("Highest scores:",True,white)
+			window.blit(text,(0,550))
+			for i in range(5):
+				text = Font.render(str(scores[i]),True,white)
+				window.blit(text,(0,600+i*50))
+
+
+		text = Font.render("Score: "+str(self.points),True,white)
 		window.blit(text,(0,0))
+		for i in range(3):
+			if i <lifes:
+				window.blit(filled_heart,(res[0]-300+i*100,50))
+			else:
+				window.blit(empty_heart,(res[0]-300+i*100,50))
+
+				
 	def shoot(self):
 		b=0
 		for bullet in self.bullets:
@@ -204,18 +238,47 @@ class Game(object):
 
 
 end=False
+lifes=3
+game=Game(0.0)
 
-game=Game()
+scores=[]
+file=open("scores.dat")
+for i in range(5):
+	scores.append(float(file.readline()))
+file.close()
 
 while not end:
 	for zet in event.get():
 		if zet.type ==QUIT:
 			end=True
 	
-	game.draw()
+	keys = key.get_pressed()
+	if keys[K_SPACE] and game.gameover and lifes==1:
+		i=0
+		while game.points<=scores[i] and i<5:
+			i=i+1
+		j=4
+		while j>i:
+			scores[j]=scores[j-1]
+			j=j-1
+		scores[i]=game.points	
+		
+		file=open("scores.dat",'w')
+		for i in range(5):
+			file.write(str(scores[i])+"\n")
+		file.close()
+		game=Game(0.0)
+		lifes=3
+
+	
+	game.draw(lifes,scores)
 	game.go()
 	if mouse.get_pressed()[0]:
 		game.shoot()
+	
+	if game.gameover and lifes>1:
+		lifes=lifes-1
+		game=Game(game.points)
 	
 	clock.tick(20)
 	display.flip()
